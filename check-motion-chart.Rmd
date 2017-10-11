@@ -1,0 +1,34 @@
+---
+title: "motion-chart.Rmd"
+author: "Matt Jones"
+date: "10/11/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+```
+
+## Simulate MetaDIG quality report data
+
+First create a data frame with quality score data as we would have from MetaDIG
+datasets.
+
+```{r simulate-data}
+check_types <- expand.grid(cnum = seq(1:4), 
+                           category = c("identification", "discovery", "interpretation"), 
+                           opt_type = c("required", "optional"))
+checks <- cbind(checkid = seq(1:24), check_types)
+datasets <- expand.grid(pid = seq(100:199), mn=c("KNB", "ARCTIC", "USLTER"))
+dschecks <- merge(datasets, checks, all=TRUE)
+score <- floor(rnorm(nrow(dschecks), 51, 4))
+dschecks <- cbind(dschecks, score)
+dschecks <- dschecks %>% mutate(cnum=NULL)
+head(dschecks)
+summary(dschecks)
+```
+
+
+## Generate the motion chart
