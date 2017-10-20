@@ -29,14 +29,17 @@ colnames(score) <- years
 score <- score %>% gather(score, key='year') %>% mutate(year = as.numeric(year))
 
 checkscores <- cbind(dschecks, score)
-newscores <- checkscores %>% mutate(score=pmin(abs(score), 100)) %>% mutate(cnum=NULL, newscore=case_when(mn == "KNB" ~ floor(score*0.64), mn == "ARCTIC" ~ floor(score*1.3), mn == "USLTER" ~ floor(score*0.9), TRUE ~ score))
+rscore <- function(score) {
+    newscore <- pmin(floor(score*rnorm(1, 1, 0.1)), 100)
+    return(newscore)
+}
+newscores <- checkscores %>% mutate(score=pmin(abs(score), 100)) %>% mutate(cnum=NULL, newscore=case_when(mn == "KNB" ~ rscore(score), mn == "ARCTIC" ~ rscore(score), mn == "USLTER" ~ rscore(score), TRUE ~ score)) %>% mutate(newscore=case_when(opt_type == "required" ~ pmin(newscore*1.2, 100), TRUE ~ newscore*0.5))
 summary(newscores)
 ```
 
 ## Summarize the data
 ```{r summarize}
 data <- newscores %>% group_by(mn, opt_type, year) %>% summarise(mean=mean(newscore), n=n()) %>% spread(opt_type, mean)
-head(data)
 summary(data)
 data
 ```
@@ -47,7 +50,9 @@ library(gganimate)
 
 theme_set(theme_bw())
 p <- ggplot(data, aes(optional, required, size = n, color = mn, frame = year)) +
-  geom_point() 
+  geom_point() +
+  scale_x_continuous(limits=c(0,100)) +
+  scale_y_continuous(limits=c(0,100))
 
 # Notice we added frame = year and saved the plot as p. 
 # We then display it as an animation with the gg_animate function:
