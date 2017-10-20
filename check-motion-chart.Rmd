@@ -16,40 +16,49 @@ library(tidyr)
 Create a data frame with quality score data as we would have from MetaDIG datasets.
 
 ```{r simulate-data}
-check_types <- expand.grid(cnum = seq(1:1), 
-                           category = c("identification", "discovery", "interpretation"), 
-                           opt_type = c("required", "optional"))
-checks <- cbind(checkid = seq(1:6), check_types)
-datasets <- expand.grid(localid = seq(100, 101), mn=c("KNB", "ARCTIC", "USLTER", "GRIIDC", "LTER_EUROPE", "NEON"))
-dschecks <- merge(datasets, checks, all=TRUE)
-years <- seq(2000, 2017)
+simdata_tiny <- function() {
+    mn <- c("KNB", "KNB", "KNB", "KNB","KNB", "KNB", "ARCTIC", "ARCTIC"," ARCTIC", "ARCTIC", "ARCTIC", "ARCTIC")
+    year <- c(2001,2002,2003,2004,2005,2006,2001,2002,2003,2004,2005,2006)
+    optional <- c(seq(1:6)*rnorm(6,1,0.1)*10, seq(1:6)*rnorm(6,1,0.1)*9)
+    required <- c(seq(1:6)*rnorm(6,1,0.1)*4, seq(1:6)*rnorm(6,1,0.1)*3)
+    data <- data.frame(mn, year, optional, required)
+    return(data)
+}
 
-score <- data.frame(rbind(sapply(years, function(year){floor(rnorm(nrow(dschecks), 1+5*(year-2000), 3))}, simplify=TRUE)))
-colnames(score) <- years
-score <- score %>% gather(score, key='year') %>% mutate(year = as.numeric(year))
-
-checkscores <- cbind(dschecks, score)
 rscore <- function(score) {
     newscore <- pmin(floor(score*rnorm(1, 1, 0.1)), 100)
     return(newscore)
 }
-newscores <- checkscores %>% mutate(score=pmin(abs(score), 100)) %>% mutate(cnum=NULL, newscore=case_when(mn == "KNB" ~ rscore(score), mn == "ARCTIC" ~ rscore(score), mn == "USLTER" ~ rscore(score), TRUE ~ score)) %>% mutate(newscore=case_when(opt_type == "required" ~ pmin(newscore*1.2, 100), TRUE ~ newscore*0.5))
-summary(newscores)
+
+simdata <- function() {
+    check_types <- expand.grid(cnum = seq(1:1), 
+                               category = c("identification", "discovery", "interpretation"), 
+                               opt_type = c("required", "optional"))
+    checks <- cbind(checkid = seq(1:6), check_types)
+    datasets <- expand.grid(localid = seq(100, 101), mn=c("KNB", "ARCTIC", "USLTER", "GRIIDC", "LTER_EUROPE", "NEON"))
+    dschecks <- merge(datasets, checks, all=TRUE)
+    years <- seq(2000, 2017)
+    score <- data.frame(rbind(sapply(years, function(year){floor(rnorm(nrow(dschecks), 1+5*(year-2000), 3))}, simplify=TRUE)))
+    colnames(score) <- years
+    score <- score %>% gather(score, key='year') %>% mutate(year = as.numeric(year))
+    checkscores <- cbind(dschecks, score)
+
+    newscores <- checkscores %>% mutate(score=pmin(abs(score), 100)) %>% mutate(cnum=NULL, newscore=case_when(mn == "KNB" ~ rscore(score), mn == "ARCTIC" ~ rscore(score), mn == "USLTER" ~ rscore(score), TRUE ~ score)) %>% mutate(newscore=case_when(opt_type == "required" ~ pmin(newscore*1.2, 100), TRUE ~ newscore*0.5))
+    
+    data <- newscores %>% group_by(mn, opt_type, year) %>% summarise(mean=mean(newscore)) %>% spread(opt_type, mean)
+    return(as.data.frame(data))
+}
 ```
 
-## Summarize the data
-```{r summarize}
-data <- newscores %>% group_by(mn, opt_type, year) %>% summarise(mean=mean(newscore), n=n()) %>% spread(opt_type, mean)
-summary(data)
-data
-```
 
 ```{r}
 library(ggplot2)
 library(gganimate)
 
+#data <- simdata_tiny()
+data <- simdata()
 theme_set(theme_bw())
-p <- ggplot(data, aes(optional, required, size = n, color = mn, frame = year)) +
+p <- ggplot(data, aes(optional, required, size = 36, color = mn, frame = year)) +
   geom_point() +
   scale_x_continuous(limits=c(0,100)) +
   scale_y_continuous(limits=c(0,100))
@@ -60,16 +69,11 @@ gganimate(p)
 ```
 
 
-## Generate the motion chart
+## Generate the motion chart using gvisMotionChart and a Fruits DB as an example
 ```{r motion-chart}
 library(googleVis)
-#gvisMotionChart(dschecks, idvar='mn', timevar='Years', colorvar ='Region', xvar = 'GDP per capita', yvar = 'Life Expectancy', sizevar='Population', options=list(), chartid)
-chart <- gvisMotionChart(data, idvar='mn', timevar='year', xvar = 'optional', yvar = 'required', options=list(), chartid='Metadata Quality')
-chart <- gvisMotionChart(data, idvar="mn", timevar="year")
-plot(chart)
-M1 <- gvisMotionChart(Fruits, idvar="Fruit", timevar="Year")
-plot(M1)
-Fruits
+M2 <- gvisMotionChart(data, idvar="mn", xvar="optional", yvar="required", timevar="year")
+plot(M2)
 ```
 
 
