@@ -13,22 +13,58 @@ library(tidyr)
 
 ## Simulate MetaDIG quality report data
 
-First create a data frame with quality score data as we would have from MetaDIG
-datasets.
+Create a data frame with quality score data as we would have from MetaDIG datasets.
 
 ```{r simulate-data}
-check_types <- expand.grid(cnum = seq(1:4), 
+check_types <- expand.grid(cnum = seq(1:1), 
                            category = c("identification", "discovery", "interpretation"), 
                            opt_type = c("required", "optional"))
-checks <- cbind(checkid = seq(1:24), check_types)
-datasets <- expand.grid(pid = seq(100:199), mn=c("KNB", "ARCTIC", "USLTER"))
+checks <- cbind(checkid = seq(1:6), check_types)
+datasets <- expand.grid(localid = seq(100, 101), mn=c("KNB", "ARCTIC", "USLTER", "GRIIDC", "LTER_EUROPE", "NEON"))
 dschecks <- merge(datasets, checks, all=TRUE)
-score <- floor(rnorm(nrow(dschecks), 51, 4))
-dschecks <- cbind(dschecks, score)
-dschecks <- dschecks %>% mutate(cnum=NULL)
-head(dschecks)
-summary(dschecks)
+years <- seq(2000, 2017)
+
+score <- data.frame(rbind(sapply(years, function(year){floor(rnorm(nrow(dschecks), 1+5*(year-2000), 3))}, simplify=TRUE)))
+colnames(score) <- years
+score <- score %>% gather(score, key='year') %>% mutate(year = as.numeric(year))
+
+checkscores <- cbind(dschecks, score)
+newscores <- checkscores %>% mutate(score=pmin(abs(score), 100)) %>% mutate(cnum=NULL, newscore=case_when(mn == "KNB" ~ floor(score*0.64), mn == "ARCTIC" ~ floor(score*1.3), mn == "USLTER" ~ floor(score*0.9), TRUE ~ score))
+summary(newscores)
+```
+
+## Summarize the data
+```{r summarize}
+data <- newscores %>% group_by(mn, opt_type, year) %>% summarise(mean=mean(newscore), n=n()) %>% spread(opt_type, mean)
+head(data)
+summary(data)
+data
+```
+
+```{r}
+library(ggplot2)
+library(gganimate)
+
+theme_set(theme_bw())
+p <- ggplot(data, aes(optional, required, size = n, color = mn, frame = year)) +
+  geom_point() 
+
+# Notice we added frame = year and saved the plot as p. 
+# We then display it as an animation with the gg_animate function:
+gganimate(p)
 ```
 
 
 ## Generate the motion chart
+```{r motion-chart}
+library(googleVis)
+#gvisMotionChart(dschecks, idvar='mn', timevar='Years', colorvar ='Region', xvar = 'GDP per capita', yvar = 'Life Expectancy', sizevar='Population', options=list(), chartid)
+chart <- gvisMotionChart(data, idvar='mn', timevar='year', xvar = 'optional', yvar = 'required', options=list(), chartid='Metadata Quality')
+chart <- gvisMotionChart(data, idvar="mn", timevar="year")
+plot(chart)
+M1 <- gvisMotionChart(Fruits, idvar="Fruit", timevar="Year")
+plot(M1)
+Fruits
+```
+
+
