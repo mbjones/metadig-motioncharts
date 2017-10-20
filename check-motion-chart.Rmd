@@ -50,6 +50,7 @@ simdata <- function() {
 }
 ```
 
+## Generate the chart using ggplot and gganimate
 
 ```{r}
 library(ggplot2)
@@ -69,7 +70,7 @@ gganimate(p)
 ```
 
 
-## Generate the motion chart using gvisMotionChart and a Fruits DB as an example
+## Generate the motion chart using gvisMotionChart
 ```{r motion-chart}
 library(googleVis)
 M2 <- gvisMotionChart(data, idvar="mn", xvar="optional", yvar="required", timevar="year")
